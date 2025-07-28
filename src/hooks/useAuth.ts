@@ -115,10 +115,11 @@ export function useAuth() {
         return
       }
 
+      const userRole = userData.user.user_metadata?.role || 'solo'
       const newProfile = {
         user_id: userData.user.id,
         email: userData.user.email!,
-        role: 'solo' as const,
+        role: userRole as UserRole,
       }
 
       const { data: createdProfile, error: createError } = await supabase
@@ -159,11 +160,14 @@ export function useAuth() {
     const { data, error } = await supabase.auth.signUp({
       email,
       password,
+      options: {
+        data: {
+          role: role
+        }
+      }
     })
 
     if (error) throw error
-
-    // Profile will be created in the auth state change handler
     return data
   }
 
