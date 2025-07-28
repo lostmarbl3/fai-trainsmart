@@ -9,6 +9,13 @@ import Dashboard from "./pages/Dashboard";
 import WorkoutBuilder from "./pages/WorkoutBuilder";
 import ClientManagement from "./pages/ClientManagement";
 import MyWorkouts from "./pages/MyWorkouts";
+import Calendar from "./pages/Calendar";
+import Programs from "./pages/Programs";
+import Progress from "./pages/Progress";
+import Workouts from "./pages/Workouts";
+import Billing from "./pages/Billing";
+import Profile from "./pages/Profile";
+import Settings from "./pages/Settings";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -27,6 +34,13 @@ const App = () => (
             <Route path="/workout-builder/:id" element={<WorkoutBuilder />} />
             <Route path="/clients" element={<ClientManagement />} />
             <Route path="/my-workouts" element={<MyWorkouts />} />
+            <Route path="/calendar" element={<Calendar />} />
+            <Route path="/programs" element={<Programs />} />
+            <Route path="/progress" element={<Progress />} />
+            <Route path="/workouts" element={<Workouts />} />
+            <Route path="/billing" element={<Billing />} />
+            <Route path="/profile" element={<Profile />} />
+            <Route path="/settings" element={<Settings />} />
             {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
             <Route path="*" element={<NotFound />} />
           </Routes>
