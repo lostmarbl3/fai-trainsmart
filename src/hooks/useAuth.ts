@@ -105,16 +105,23 @@ export function useAuth() {
 
     // Create profile record manually after successful auth signup
     if (data.user && !error) {
-      const { error: profileError } = await supabase
+      console.log('Auth signup result:', data);
+      console.log('User ID:', data.user?.id);
+      console.log('Attempting profile insert...');
+
+      const { data: profileData, error: profileError } = await supabase
         .from('profiles')
         .insert({
           id: data.user.id,
           user_id: data.user.id,
-          email: data.user.email,
+          email: email,
+          role: role,
           first_name: firstName || '',
-          last_name: lastName || '',
-          role: role
+          last_name: lastName || ''
         })
+
+      console.log('Profile insert result:', profileData);
+      console.log('Profile insert error:', profileError);
       
       if (profileError) {
         console.error('Profile creation error:', profileError)
