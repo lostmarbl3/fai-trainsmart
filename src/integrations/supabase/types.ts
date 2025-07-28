@@ -14,13 +14,59 @@ export type Database = {
   }
   public: {
     Tables: {
+      exercises: {
+        Row: {
+          category: string | null
+          created_at: string | null
+          created_by: string | null
+          equipment: string | null
+          id: string
+          instructions: string | null
+          is_default: boolean | null
+          muscle_groups: string[] | null
+          name: string
+        }
+        Insert: {
+          category?: string | null
+          created_at?: string | null
+          created_by?: string | null
+          equipment?: string | null
+          id?: string
+          instructions?: string | null
+          is_default?: boolean | null
+          muscle_groups?: string[] | null
+          name: string
+        }
+        Update: {
+          category?: string | null
+          created_at?: string | null
+          created_by?: string | null
+          equipment?: string | null
+          id?: string
+          instructions?: string | null
+          is_default?: boolean | null
+          muscle_groups?: string[] | null
+          name?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "exercises_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       profiles: {
         Row: {
           client_limit: number | null
           created_at: string
           email: string
+          first_name: string | null
           full_name: string | null
           id: string
+          last_name: string | null
           role: Database["public"]["Enums"]["user_role"]
           stripe_customer_id: string | null
           subscription_status: string | null
@@ -33,8 +79,10 @@ export type Database = {
           client_limit?: number | null
           created_at?: string
           email: string
+          first_name?: string | null
           full_name?: string | null
           id?: string
+          last_name?: string | null
           role?: Database["public"]["Enums"]["user_role"]
           stripe_customer_id?: string | null
           subscription_status?: string | null
@@ -47,8 +95,10 @@ export type Database = {
           client_limit?: number | null
           created_at?: string
           email?: string
+          first_name?: string | null
           full_name?: string | null
           id?: string
+          last_name?: string | null
           role?: Database["public"]["Enums"]["user_role"]
           stripe_customer_id?: string | null
           subscription_status?: string | null
@@ -61,6 +111,221 @@ export type Database = {
           {
             foreignKeyName: "profiles_trainer_id_fkey"
             columns: ["trainer_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      programs: {
+        Row: {
+          created_at: string | null
+          creator_id: string | null
+          description: string | null
+          duration_weeks: number | null
+          id: string
+          is_template: boolean | null
+          program_data: Json | null
+          title: string
+          updated_at: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          creator_id?: string | null
+          description?: string | null
+          duration_weeks?: number | null
+          id?: string
+          is_template?: boolean | null
+          program_data?: Json | null
+          title: string
+          updated_at?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          creator_id?: string | null
+          description?: string | null
+          duration_weeks?: number | null
+          id?: string
+          is_template?: boolean | null
+          program_data?: Json | null
+          title?: string
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "programs_creator_id_fkey"
+            columns: ["creator_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      trainer_clients: {
+        Row: {
+          billing_amount: number | null
+          billing_schedule: string | null
+          client_id: string | null
+          created_at: string | null
+          days_past_due_limit: number | null
+          health_questionnaire_completed_at: string | null
+          id: string
+          requires_health_questionnaire: boolean | null
+          requires_waiver: boolean | null
+          status: string | null
+          trainer_id: string | null
+          trainer_notes: string | null
+          updated_at: string | null
+          waiver_signed_at: string | null
+        }
+        Insert: {
+          billing_amount?: number | null
+          billing_schedule?: string | null
+          client_id?: string | null
+          created_at?: string | null
+          days_past_due_limit?: number | null
+          health_questionnaire_completed_at?: string | null
+          id?: string
+          requires_health_questionnaire?: boolean | null
+          requires_waiver?: boolean | null
+          status?: string | null
+          trainer_id?: string | null
+          trainer_notes?: string | null
+          updated_at?: string | null
+          waiver_signed_at?: string | null
+        }
+        Update: {
+          billing_amount?: number | null
+          billing_schedule?: string | null
+          client_id?: string | null
+          created_at?: string | null
+          days_past_due_limit?: number | null
+          health_questionnaire_completed_at?: string | null
+          id?: string
+          requires_health_questionnaire?: boolean | null
+          requires_waiver?: boolean | null
+          status?: string | null
+          trainer_id?: string | null
+          trainer_notes?: string | null
+          updated_at?: string | null
+          waiver_signed_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "trainer_clients_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "trainer_clients_trainer_id_fkey"
+            columns: ["trainer_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      workout_sessions: {
+        Row: {
+          completed_at: string | null
+          created_at: string | null
+          feedback: string | null
+          id: string
+          session_data: Json | null
+          user_id: string | null
+          workout_id: string | null
+        }
+        Insert: {
+          completed_at?: string | null
+          created_at?: string | null
+          feedback?: string | null
+          id?: string
+          session_data?: Json | null
+          user_id?: string | null
+          workout_id?: string | null
+        }
+        Update: {
+          completed_at?: string | null
+          created_at?: string | null
+          feedback?: string | null
+          id?: string
+          session_data?: Json | null
+          user_id?: string | null
+          workout_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "workout_sessions_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "workout_sessions_workout_id_fkey"
+            columns: ["workout_id"]
+            isOneToOne: false
+            referencedRelation: "workouts"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      workouts: {
+        Row: {
+          assigned_to: string | null
+          completed_at: string | null
+          created_at: string | null
+          creator_id: string | null
+          description: string | null
+          feedback: string | null
+          id: string
+          scheduled_date: string | null
+          status: string | null
+          title: string
+          updated_at: string | null
+          workout_data: Json | null
+        }
+        Insert: {
+          assigned_to?: string | null
+          completed_at?: string | null
+          created_at?: string | null
+          creator_id?: string | null
+          description?: string | null
+          feedback?: string | null
+          id?: string
+          scheduled_date?: string | null
+          status?: string | null
+          title: string
+          updated_at?: string | null
+          workout_data?: Json | null
+        }
+        Update: {
+          assigned_to?: string | null
+          completed_at?: string | null
+          created_at?: string | null
+          creator_id?: string | null
+          description?: string | null
+          feedback?: string | null
+          id?: string
+          scheduled_date?: string | null
+          status?: string | null
+          title?: string
+          updated_at?: string | null
+          workout_data?: Json | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "workouts_assigned_to_fkey"
+            columns: ["assigned_to"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "workouts_creator_id_fkey"
+            columns: ["creator_id"]
             isOneToOne: false
             referencedRelation: "profiles"
             referencedColumns: ["id"]
