@@ -217,11 +217,9 @@ export default function WorkoutBuilder() {
             </Button>
             
             <Select onValueChange={assignWorkout}>
-              <SelectTrigger asChild>
-                <Button size="sm">
-                  <Send className="h-4 w-4 mr-2" />
-                  Assign to Client
-                </Button>
+              <SelectTrigger className="w-auto">
+                <Send className="h-4 w-4 mr-2" />
+                <SelectValue placeholder="Assign to Client" />
               </SelectTrigger>
               <SelectContent>
                 {mockClients.map(client => (
