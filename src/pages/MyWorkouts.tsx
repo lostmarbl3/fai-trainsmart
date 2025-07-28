@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
@@ -7,6 +7,7 @@ import { Badge } from '@/components/ui/badge'
 import { Plus, Play, Calendar, User, Clock, Copy, Trash2 } from 'lucide-react'
 import { useToast } from '@/hooks/use-toast'
 import { useAuth } from '@/hooks/useAuth'
+import { supabase } from '@/integrations/supabase/client'
 
 interface Workout {
   id: string
@@ -80,11 +81,80 @@ const mockWorkouts: Workout[] = [
 export default function MyWorkouts() {
   const navigate = useNavigate()
   const { toast } = useToast()
-  const { profile } = useAuth()
-  const [workouts, setWorkouts] = useState<Workout[]>(mockWorkouts)
+  const { user, profile } = useAuth()
+  const [workouts, setWorkouts] = useState<Workout[]>([])
+  const [loading, setLoading] = useState(true)
 
   const isTrainer = profile?.role === 'trainer'
   const isSolo = profile?.role === 'solo'
+
+  // Load workouts on component mount
+  useEffect(() => {
+    if (user) {
+      loadWorkouts()
+    }
+  }, [user])
+
+  const loadWorkouts = async () => {
+    try {
+      setLoading(true)
+      console.log('Loading workouts for user:', user?.id)
+
+      let query = supabase
+        .from('workouts')
+        .select(`
+          *,
+          assigned_user:profiles!workouts_assigned_to_fkey(first_name, last_name)
+        `)
+
+      // For trainers, load workouts they created
+      // For clients/solo, load workouts assigned to them or created by them
+      if (profile?.role === 'trainer') {
+        query = query.eq('creator_id', user?.id)
+      } else {
+        query = query.or(`creator_id.eq.${user?.id},assigned_to.eq.${user?.id}`)
+      }
+
+      const { data, error } = await query.order('created_at', { ascending: false })
+
+      if (error) {
+        console.error('Error loading workouts:', error)
+        toast({
+          title: "Error",
+          description: "Failed to load workouts",
+          variant: "destructive"
+        })
+        return
+      }
+
+      if (data) {
+        console.log('Loaded workouts:', data)
+        const workoutsList = data.map(w => ({
+          id: w.id,
+          title: w.title || '',
+          description: w.description || '',
+          status: w.status as 'draft' | 'template' | 'assigned' | 'completed',
+          created_at: w.created_at || new Date().toISOString(),
+          scheduled_date: w.scheduled_date || undefined,
+          assigned_to: w.assigned_to || undefined,
+          assigned_to_name: w.assigned_user ? `${w.assigned_user.first_name} ${w.assigned_user.last_name}` : undefined,
+          exercise_count: (w.workout_data as any)?.exercises?.length || 0,
+          estimated_duration: undefined, // We'll calculate this later if needed
+          last_used: undefined // We'll implement this with workout sessions later
+        }))
+        setWorkouts(workoutsList)
+      }
+    } catch (error) {
+      console.error('Error loading workouts:', error)
+      toast({
+        title: "Error",
+        description: "Failed to load workouts",
+        variant: "destructive"
+      })
+    } finally {
+      setLoading(false)
+    }
+  }
 
   const getStatusBadge = (status: string) => {
     switch (status) {
@@ -113,32 +183,94 @@ export default function MyWorkouts() {
     navigate(`/workout-builder/${workoutId}`)
   }
 
-  const copyWorkout = (workout: Workout) => {
-    const copiedWorkout = {
-      ...workout,
-      id: `workout-${Date.now()}`,
-      title: `${workout.title} (Copy)`,
-      status: 'draft' as const,
-      created_at: new Date().toISOString(),
-      assigned_to: undefined,
-      assigned_to_name: undefined,
-      scheduled_date: undefined
+  const copyWorkout = async (workout: Workout) => {
+    if (!user) {
+      toast({
+        title: "Error",
+        description: "You must be logged in to copy workouts",
+        variant: "destructive"
+      })
+      return
     }
-    
-    setWorkouts(prev => [copiedWorkout, ...prev])
-    toast({
-      title: "Workout Copied",
-      description: `"${workout.title}" has been copied to your drafts.`,
-    })
+
+    try {
+      console.log('Copying workout:', workout)
+
+      const { data, error } = await supabase
+        .from('workouts')
+        .insert({
+          title: `${workout.title} (Copy)`,
+          description: workout.description,
+          creator_id: user.id,
+          workout_data: (workouts.find(w => w.id === workout.id) as any)?.workout_data || { exercises: [] },
+          status: 'draft'
+        })
+        .select()
+        .single()
+
+      if (error) {
+        console.error('Error copying workout:', error)
+        toast({
+          title: "Error",
+          description: "Failed to copy workout",
+          variant: "destructive"
+        })
+        return
+      }
+
+      console.log('Workout copied successfully:', data)
+      await loadWorkouts() // Refresh the list
+
+      toast({
+        title: "Success",
+        description: `"${workout.title}" has been copied to your drafts.`,
+      })
+    } catch (error) {
+      console.error('Error copying workout:', error)
+      toast({
+        title: "Error",
+        description: "Failed to copy workout",
+        variant: "destructive"
+      })
+    }
   }
 
-  const deleteWorkout = (workoutId: string) => {
+  const deleteWorkout = async (workoutId: string) => {
     const workout = workouts.find(w => w.id === workoutId)
-    setWorkouts(prev => prev.filter(w => w.id !== workoutId))
-    toast({
-      title: "Workout Deleted",
-      description: `"${workout?.title}" has been deleted.`,
-    })
+    
+    try {
+      console.log('Deleting workout:', workoutId)
+
+      const { error } = await supabase
+        .from('workouts')
+        .delete()
+        .eq('id', workoutId)
+
+      if (error) {
+        console.error('Error deleting workout:', error)
+        toast({
+          title: "Error",
+          description: "Failed to delete workout",
+          variant: "destructive"
+        })
+        return
+      }
+
+      console.log('Workout deleted successfully')
+      setWorkouts(prev => prev.filter(w => w.id !== workoutId))
+      
+      toast({
+        title: "Success",
+        description: `"${workout?.title}" has been deleted.`,
+      })
+    } catch (error) {
+      console.error('Error deleting workout:', error)
+      toast({
+        title: "Error",
+        description: "Failed to delete workout",
+        variant: "destructive"
+      })
+    }
   }
 
   const startWorkout = (workoutId: string) => {
@@ -241,6 +373,14 @@ export default function MyWorkouts() {
       </CardContent>
     </Card>
   )
+
+  if (loading) {
+    return (
+      <div className="container mx-auto p-6 max-w-7xl">
+        <div className="text-center">Loading workouts...</div>
+      </div>
+    )
+  }
 
   return (
     <div className="container mx-auto p-6 max-w-7xl">

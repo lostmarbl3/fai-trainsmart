@@ -7,6 +7,8 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Plus, Trash2, Copy, Save, Send } from 'lucide-react'
 import { useToast } from '@/hooks/use-toast'
+import { useAuth } from '@/hooks/useAuth'
+import { supabase } from '@/integrations/supabase/client'
 
 interface WorkoutSet {
   type: 'warmup' | 'working' | 'dropset'
@@ -33,6 +35,13 @@ interface Workout {
   scheduled_date?: string
 }
 
+interface Client {
+  id: string
+  first_name: string
+  last_name: string
+  email: string
+}
+
 const exerciseLibrary = [
   { name: 'Back Squat', category: 'Lower Body' },
   { name: 'Bench Press', category: 'Upper Body' },
@@ -44,16 +53,11 @@ const exerciseLibrary = [
   { name: 'Dumbbell Press', category: 'Upper Body' },
 ]
 
-const mockClients = [
-  { id: 'client-1', name: 'John Smith', email: 'john@example.com' },
-  { id: 'client-2', name: 'Sarah Johnson', email: 'sarah@example.com' },
-  { id: 'client-3', name: 'Mike Wilson', email: 'mike@example.com' },
-]
-
 export default function WorkoutBuilder() {
   const navigate = useNavigate()
   const { id } = useParams()
   const { toast } = useToast()
+  const { user, profile } = useAuth()
   
   const [workout, setWorkout] = useState<Workout>({
     title: '',
@@ -61,7 +65,100 @@ export default function WorkoutBuilder() {
     exercises: []
   })
   
+  const [clients, setClients] = useState<Client[]>([])
+  const [loading, setLoading] = useState(false)
+  const [saving, setSaving] = useState(false)
   const [viewMode, setViewMode] = useState<'sheets' | 'form'>('sheets')
+
+  // Load workout if editing
+  useEffect(() => {
+    if (id && user) {
+      loadWorkout(id)
+    }
+  }, [id, user])
+
+  // Load clients for assignment
+  useEffect(() => {
+    if (user && profile?.role === 'trainer') {
+      loadClients()
+    }
+  }, [user, profile])
+
+  const loadWorkout = async (workoutId: string) => {
+    try {
+      setLoading(true)
+      console.log('Loading workout:', workoutId)
+      
+      const { data, error } = await supabase
+        .from('workouts')
+        .select('*')
+        .eq('id', workoutId)
+        .single()
+
+      if (error) {
+        console.error('Error loading workout:', error)
+        toast({
+          title: "Error",
+          description: "Failed to load workout",
+          variant: "destructive"
+        })
+        return
+      }
+
+      if (data) {
+        console.log('Loaded workout data:', data)
+        setWorkout({
+          id: data.id,
+          title: data.title || '',
+          description: data.description || '',
+          exercises: (data.workout_data as any)?.exercises || [],
+          assigned_to: data.assigned_to,
+          scheduled_date: data.scheduled_date
+        })
+      }
+    } catch (error) {
+      console.error('Error loading workout:', error)
+      toast({
+        title: "Error",
+        description: "Failed to load workout",
+        variant: "destructive"
+      })
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const loadClients = async () => {
+    try {
+      console.log('Loading clients for trainer:', user?.id)
+      
+      const { data, error } = await supabase
+        .from('trainer_clients')
+        .select(`
+          client_id,
+          client:profiles!trainer_clients_client_id_fkey(id, first_name, last_name, email)
+        `)
+        .eq('trainer_id', user?.id)
+
+      if (error) {
+        console.error('Error loading clients:', error)
+        return
+      }
+
+      if (data) {
+        console.log('Loaded clients:', data)
+        const clientsList = data.map(tc => ({
+          id: tc.client_id,
+          first_name: tc.client?.first_name || '',
+          last_name: tc.client?.last_name || '',
+          email: tc.client?.email || ''
+        }))
+        setClients(clientsList)
+      }
+    } catch (error) {
+      console.error('Error loading clients:', error)
+    }
+  }
 
   const addExercise = () => {
     const newExercise: WorkoutExercise = {
@@ -155,21 +252,158 @@ export default function WorkoutBuilder() {
     }))
   }
 
-  const saveWorkout = () => {
-    // Mock save functionality
-    toast({
-      title: "Workout Saved",
-      description: "Your workout has been saved as a draft.",
-    })
+  const saveWorkout = async () => {
+    if (!user) {
+      toast({
+        title: "Error",
+        description: "You must be logged in to save workouts",
+        variant: "destructive"
+      })
+      return
+    }
+
+    if (!workout.title.trim()) {
+      toast({
+        title: "Error",
+        description: "Please enter a workout title",
+        variant: "destructive"
+      })
+      return
+    }
+
+    try {
+      setSaving(true)
+      console.log('Saving workout:', workout)
+
+      const workoutData = {
+        title: workout.title,
+        description: workout.description,
+        creator_id: user.id,
+        workout_data: JSON.parse(JSON.stringify({
+          exercises: workout.exercises
+        })),
+        status: 'draft',
+        assigned_to: workout.assigned_to || null,
+        scheduled_date: workout.scheduled_date || null
+      }
+
+      let result
+      if (workout.id) {
+        // Update existing workout
+        console.log('Updating workout:', workout.id)
+        result = await supabase
+          .from('workouts')
+          .update(workoutData)
+          .eq('id', workout.id)
+          .select()
+          .single()
+      } else {
+        // Create new workout
+        console.log('Creating new workout')
+        result = await supabase
+          .from('workouts')
+          .insert(workoutData)
+          .select()
+          .single()
+      }
+
+      if (result.error) {
+        console.error('Error saving workout:', result.error)
+        toast({
+          title: "Error",
+          description: "Failed to save workout",
+          variant: "destructive"
+        })
+        return
+      }
+
+      console.log('Workout saved successfully:', result.data)
+      setWorkout(prev => ({ ...prev, id: result.data.id }))
+      
+      toast({
+        title: "Success",
+        description: workout.id ? "Workout updated!" : "Workout saved as draft!",
+      })
+
+      // Navigate to the workout with the ID if it's a new workout
+      if (!workout.id && result.data.id) {
+        navigate(`/workout-builder/${result.data.id}`, { replace: true })
+      }
+    } catch (error) {
+      console.error('Error saving workout:', error)
+      toast({
+        title: "Error",
+        description: "Failed to save workout",
+        variant: "destructive"
+      })
+    } finally {
+      setSaving(false)
+    }
   }
 
-  const assignWorkout = (clientId: string) => {
-    // Mock assign functionality
-    const client = mockClients.find(c => c.id === clientId)
-    toast({
-      title: "Workout Assigned",
-      description: `Workout assigned to ${client?.name}`,
-    })
+  const assignWorkout = async (clientId: string) => {
+    if (!workout.id) {
+      toast({
+        title: "Error",
+        description: "Please save the workout first",
+        variant: "destructive"
+      })
+      return
+    }
+
+    try {
+      console.log('Assigning workout to client:', clientId)
+      
+      const { data, error } = await supabase
+        .from('workouts')
+        .update({ 
+          assigned_to: clientId,
+          status: 'assigned',
+          scheduled_date: new Date().toISOString().split('T')[0] // Today's date
+        })
+        .eq('id', workout.id)
+        .select()
+        .single()
+
+      if (error) {
+        console.error('Error assigning workout:', error)
+        toast({
+          title: "Error",
+          description: "Failed to assign workout",
+          variant: "destructive"
+        })
+        return
+      }
+
+      console.log('Workout assigned successfully:', data)
+      const client = clients.find(c => c.id === clientId)
+      
+      setWorkout(prev => ({ 
+        ...prev, 
+        assigned_to: clientId,
+        scheduled_date: data.scheduled_date
+      }))
+
+      toast({
+        title: "Success",
+        description: `Workout assigned to ${client?.first_name} ${client?.last_name}`,
+      })
+    } catch (error) {
+      console.error('Error assigning workout:', error)
+      toast({
+        title: "Error",
+        description: "Failed to assign workout",
+        variant: "destructive"
+      })
+    }
+  }
+
+  if (loading) {
+    return (
+      <div className="container mx-auto p-6 max-w-7xl">
+        <div className="text-center">Loading workout...</div>
+      </div>
+    )
   }
 
   return (
@@ -211,24 +445,31 @@ export default function WorkoutBuilder() {
           </div>
           
           <div className="flex gap-2">
-            <Button onClick={saveWorkout} variant="outline" size="sm">
+            <Button 
+              onClick={saveWorkout} 
+              variant="outline" 
+              size="sm"
+              disabled={saving}
+            >
               <Save className="h-4 w-4 mr-2" />
-              Save Draft
+              {saving ? 'Saving...' : 'Save Draft'}
             </Button>
             
-            <Select onValueChange={assignWorkout}>
-              <SelectTrigger className="w-auto">
-                <Send className="h-4 w-4 mr-2" />
-                <SelectValue placeholder="Assign to Client" />
-              </SelectTrigger>
-              <SelectContent>
-                {mockClients.map(client => (
-                  <SelectItem key={client.id} value={client.id}>
-                    {client.name}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            {profile?.role === 'trainer' && clients.length > 0 && (
+              <Select onValueChange={assignWorkout}>
+                <SelectTrigger className="w-auto">
+                  <Send className="h-4 w-4 mr-2" />
+                  <SelectValue placeholder="Assign to Client" />
+                </SelectTrigger>
+                <SelectContent>
+                  {clients.map(client => (
+                    <SelectItem key={client.id} value={client.id}>
+                      {client.first_name} {client.last_name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            )}
           </div>
         </div>
       </div>

@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -11,6 +11,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Checkbox } from '@/components/ui/checkbox'
 import { Plus, Search, Calendar, User, DollarSign, FileText, ChevronRight } from 'lucide-react'
 import { useToast } from '@/hooks/use-toast'
+import { useAuth } from '@/hooks/useAuth'
+import { supabase } from '@/integrations/supabase/client'
 
 interface Client {
   id: string
@@ -82,7 +84,10 @@ const mockClients: Client[] = [
 export default function ClientManagement() {
   const navigate = useNavigate()
   const { toast } = useToast()
-  const [clients, setClients] = useState<Client[]>(mockClients)
+  const { user, profile } = useAuth()
+  const [clients, setClients] = useState<Client[]>([])
+  const [loading, setLoading] = useState(true)
+  const [saving, setSaving] = useState(false)
   const [searchTerm, setSearchTerm] = useState('')
   const [statusFilter, setStatusFilter] = useState<string>('all')
   const [isAddClientOpen, setIsAddClientOpen] = useState(false)
@@ -102,6 +107,68 @@ export default function ClientManagement() {
     days_past_due_limit: '7',
     training_goals: ''
   })
+
+  // Load clients on component mount
+  useEffect(() => {
+    if (user && profile?.role === 'trainer') {
+      loadClients()
+    }
+  }, [user, profile])
+
+  const loadClients = async () => {
+    try {
+      setLoading(true)
+      console.log('Loading clients for trainer:', user?.id)
+
+      const { data, error } = await supabase
+        .from('trainer_clients')
+        .select(`
+          *,
+          client:profiles!trainer_clients_client_id_fkey(*)
+        `)
+        .eq('trainer_id', user?.id)
+
+      if (error) {
+        console.error('Error loading clients:', error)
+        toast({
+          title: "Error",
+          description: "Failed to load clients",
+          variant: "destructive"
+        })
+        return
+      }
+
+      if (data) {
+        console.log('Loaded client data:', data)
+        const clientsList = data.map(tc => ({
+          id: tc.client_id,
+          first_name: tc.client?.first_name || '',
+          last_name: tc.client?.last_name || '',
+          email: tc.client?.email || '',
+          phone: '', // Phone not stored in profiles, will be empty for now
+          status: tc.status as 'active' | 'suspended' | 'pending',
+          billing_amount: tc.billing_amount ? Number(tc.billing_amount) : undefined,
+          billing_schedule: tc.billing_schedule || '',
+          trainer_notes: tc.trainer_notes || '',
+          requires_waiver: tc.requires_waiver || false,
+          waiver_signed_at: tc.waiver_signed_at || undefined,
+          requires_health_questionnaire: tc.requires_health_questionnaire || false,
+          health_questionnaire_completed_at: tc.health_questionnaire_completed_at || undefined,
+          created_at: tc.created_at || new Date().toISOString()
+        }))
+        setClients(clientsList)
+      }
+    } catch (error) {
+      console.error('Error loading clients:', error)
+      toast({
+        title: "Error",
+        description: "Failed to load clients",
+        variant: "destructive"
+      })
+    } finally {
+      setLoading(false)
+    }
+  }
 
   const filteredClients = clients.filter(client => {
     const matchesSearch = 
@@ -127,44 +194,134 @@ export default function ClientManagement() {
     }
   }
 
-  const addClient = () => {
-    const client: Client = {
-      id: `client-${Date.now()}`,
-      first_name: newClient.first_name,
-      last_name: newClient.last_name,
-      email: newClient.email,
-      phone: newClient.phone || undefined,
-      status: 'pending',
-      billing_amount: newClient.billing_amount ? parseFloat(newClient.billing_amount) : undefined,
-      billing_schedule: newClient.billing_schedule,
-      requires_waiver: newClient.requires_waiver,
-      requires_health_questionnaire: newClient.requires_health_questionnaire,
-      created_at: new Date().toISOString()
+  const addClient = async () => {
+    if (!user) {
+      toast({
+        title: "Error",
+        description: "You must be logged in to add clients",
+        variant: "destructive"
+      })
+      return
     }
 
-    setClients(prev => [...prev, client])
-    setIsAddClientOpen(false)
-    
-    // Reset form
-    setNewClient({
-      first_name: '',
-      last_name: '',
-      email: '',
-      phone: '',
-      billing_amount: '',
-      billing_schedule: 'monthly',
-      requires_waiver: false,
-      waiver_link: '',
-      requires_health_questionnaire: false,
-      health_questionnaire_link: '',
-      days_past_due_limit: '7',
-      training_goals: ''
-    })
+    if (!newClient.first_name || !newClient.last_name || !newClient.email) {
+      toast({
+        title: "Error",
+        description: "Please fill in all required fields",
+        variant: "destructive"
+      })
+      return
+    }
 
-    toast({
-      title: "Client Added",
-      description: `${client.first_name} ${client.last_name} has been added to your client list.`,
-    })
+    try {
+      setSaving(true)
+      console.log('Adding new client:', newClient)
+
+      // First, create or find the user profile for the client
+      const { data: existingProfile, error: profileError } = await supabase
+        .from('profiles')
+        .select('*')
+        .eq('email', newClient.email)
+        .single()
+
+      let clientId: string
+
+      if (existingProfile) {
+        // Client already exists as a user
+        clientId = existingProfile.id
+        console.log('Found existing client profile:', existingProfile)
+      } else {
+        // Create a new profile for the client
+        const { data: newProfile, error: createProfileError } = await supabase
+          .from('profiles')
+          .insert({
+            email: newClient.email,
+            first_name: newClient.first_name,
+            last_name: newClient.last_name,
+            role: 'client',
+            user_id: null // Set to null since they haven't signed up yet
+          })
+          .select()
+          .single()
+
+        if (createProfileError) {
+          console.error('Error creating client profile:', createProfileError)
+          toast({
+            title: "Error",
+            description: "Failed to create client profile",
+            variant: "destructive"
+          })
+          return
+        }
+
+        clientId = newProfile.id
+        console.log('Created new client profile:', newProfile)
+      }
+
+      // Now create the trainer-client relationship
+      const { data: trainerClient, error: relationshipError } = await supabase
+        .from('trainer_clients')
+        .insert({
+          trainer_id: user.id,
+          client_id: clientId,
+          status: 'pending',
+          billing_amount: newClient.billing_amount ? parseFloat(newClient.billing_amount) : null,
+          billing_schedule: newClient.billing_schedule,
+          requires_waiver: newClient.requires_waiver,
+          requires_health_questionnaire: newClient.requires_health_questionnaire,
+          days_past_due_limit: parseInt(newClient.days_past_due_limit) || 7,
+          trainer_notes: newClient.training_goals || null
+        })
+        .select()
+        .single()
+
+      if (relationshipError) {
+        console.error('Error creating trainer-client relationship:', relationshipError)
+        toast({
+          title: "Error",
+          description: "Failed to add client to your list",
+          variant: "destructive"
+        })
+        return
+      }
+
+      console.log('Created trainer-client relationship:', trainerClient)
+
+      // Refresh the clients list
+      await loadClients()
+      
+      setIsAddClientOpen(false)
+      
+      // Reset form
+      setNewClient({
+        first_name: '',
+        last_name: '',
+        email: '',
+        phone: '',
+        billing_amount: '',
+        billing_schedule: 'monthly',
+        requires_waiver: false,
+        waiver_link: '',
+        requires_health_questionnaire: false,
+        health_questionnaire_link: '',
+        days_past_due_limit: '7',
+        training_goals: ''
+      })
+
+      toast({
+        title: "Success",
+        description: `${newClient.first_name} ${newClient.last_name} has been added to your client list.`,
+      })
+    } catch (error) {
+      console.error('Error adding client:', error)
+      toast({
+        title: "Error",
+        description: "Failed to add client",
+        variant: "destructive"
+      })
+    } finally {
+      setSaving(false)
+    }
   }
 
   const createWorkoutForClient = (clientId: string) => {
@@ -173,6 +330,14 @@ export default function ClientManagement() {
 
   const viewClientProfile = (clientId: string) => {
     navigate(`/profile`)
+  }
+
+  if (loading) {
+    return (
+      <div className="container mx-auto p-6 max-w-7xl">
+        <div className="text-center">Loading clients...</div>
+      </div>
+    )
   }
 
   return (
