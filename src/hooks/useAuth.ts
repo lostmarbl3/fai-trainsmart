@@ -44,31 +44,6 @@ export function useAuth() {
 
         if (existingProfile && mounted) {
           setProfile(existingProfile)
-          return
-        }
-
-        // Create profile if it doesn't exist
-        const { data: userData } = await supabase.auth.getUser()
-        if (!userData.user || !mounted) return
-
-        const userRole = userData.user.user_metadata?.role || 'solo'
-        const firstName = userData.user.user_metadata?.first_name
-        const lastName = userData.user.user_metadata?.last_name
-        
-        const { data: createdProfile, error: createError } = await supabase
-          .from('profiles')
-          .insert({
-            user_id: userData.user.id,
-            email: userData.user.email!,
-            role: userRole as UserRole,
-            first_name: firstName,
-            last_name: lastName,
-          })
-          .select()
-          .maybeSingle()
-
-        if (!createError && createdProfile && mounted) {
-          setProfile(createdProfile)
         }
       } finally {
         if (mounted) {
