@@ -30,7 +30,7 @@ export function Navbar() {
 
     const baseItems = [
       { path: '/dashboard', label: 'Dashboard', icon: BarChart3 },
-      { path: '/workouts', label: 'My Workouts', icon: Dumbbell },
+      { path: '/my-workouts', label: 'My Workouts', icon: Dumbbell },
       { path: '/calendar', label: 'Calendar', icon: Calendar },
     ]
 

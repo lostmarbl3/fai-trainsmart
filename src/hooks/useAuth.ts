@@ -21,70 +21,36 @@ export interface UserProfile {
   updated_at: string
 }
 
+// Mock user data for development
+const mockUser = {
+  id: 'temp-user-123',
+  email: 'test@trainer.com',
+  created_at: new Date().toISOString(),
+  updated_at: new Date().toISOString(),
+} as User
+
+const mockProfile: UserProfile = {
+  id: 'temp-profile-123',
+  user_id: 'temp-user-123',
+  email: 'test@trainer.com',
+  first_name: 'Test',
+  last_name: 'Trainer',
+  full_name: 'Test Trainer',
+  role: 'trainer',
+  client_limit: 10,
+  created_at: new Date().toISOString(),
+  updated_at: new Date().toISOString(),
+}
+
 export function useAuth() {
-  const [user, setUser] = useState<User | null>(null)
-  const [profile, setProfile] = useState<UserProfile | null>(null)
-  const [loading, setLoading] = useState(true)
+  const [user, setUser] = useState<User | null>(mockUser)
+  const [profile, setProfile] = useState<UserProfile | null>(mockProfile)
+  const [loading, setLoading] = useState(false)
 
+  // Mock data - no actual auth for now
   useEffect(() => {
-    let mounted = true
-
-    const fetchProfile = async (userId: string) => {
-      try {
-        const { data: existingProfile, error: fetchError } = await supabase
-          .from('profiles')
-          .select('*')
-          .eq('user_id', userId)
-          .maybeSingle()
-
-        if (fetchError) {
-          console.error('Error fetching profile:', fetchError)
-          return
-        }
-
-        if (existingProfile && mounted) {
-          setProfile(existingProfile)
-        }
-      } finally {
-        if (mounted) {
-          setLoading(false)
-        }
-      }
-    }
-
-    const initAuth = async () => {
-      const { data: { session } } = await supabase.auth.getSession()
-      
-      if (!mounted) return
-      
-      setUser(session?.user ?? null)
-      
-      if (session?.user) {
-        await fetchProfile(session.user.id)
-      } else {
-        setLoading(false)
-      }
-    }
-
-    initAuth()
-
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
-      if (!mounted) return
-      
-      setUser(session?.user ?? null)
-      
-      if (session?.user) {
-        fetchProfile(session.user.id)
-      } else {
-        setProfile(null)
-        setLoading(false)
-      }
-    })
-
-    return () => {
-      mounted = false
-      subscription.unsubscribe()
-    }
+    // Simulate loading time
+    setTimeout(() => setLoading(false), 100)
   }, [])
 
   const signUp = async (email: string, password: string, role: UserRole = 'solo', firstName?: string, lastName?: string) => {
