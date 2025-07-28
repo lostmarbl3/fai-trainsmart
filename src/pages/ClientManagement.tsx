@@ -172,7 +172,7 @@ export default function ClientManagement() {
   }
 
   const viewClientProfile = (clientId: string) => {
-    navigate(`/clients/${clientId}`)
+    navigate(`/profile`)
   }
 
   return (
