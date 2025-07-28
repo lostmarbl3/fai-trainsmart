@@ -112,8 +112,7 @@ export function useAuth() {
       const { data: profileData, error: profileError } = await supabase
         .from('profiles')
         .insert({
-          id: data.user.id,
-          user_id: data.user.id,
+          user_id: data.user.id,  // This should match auth.uid()
           email: email,
           role: role,
           first_name: firstName || '',
