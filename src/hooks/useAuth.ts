@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useRef, useCallback } from 'react'
 import { User } from '@supabase/supabase-js'
 import { supabase } from '@/integrations/supabase/client'
 
@@ -26,151 +26,96 @@ export function useAuth() {
   const [profile, setProfile] = useState<UserProfile | null>(null)
   const [loading, setLoading] = useState(true)
 
-  useEffect(() => {
-    let timeoutId: NodeJS.Timeout
-    let isMounted = true
+  // Prevent multiple concurrent profile fetches
+  const fetchingRef = useRef(false)
 
-    const initializeAuth = async () => {
-      console.log('Initializing auth...')
-      
-      // Set timeout as safety net
-      timeoutId = setTimeout(() => {
-        if (isMounted) {
-          console.log('Auth timeout reached, forcing loading to false')
-          setLoading(false)
-        }
-      }, 10000)
+  const fetchProfile = useCallback(async (userId: string) => {
+    if (fetchingRef.current) return
+    fetchingRef.current = true
 
-      try {
-        // Get initial session
-        const { data: { session } } = await supabase.auth.getSession()
-        console.log('Initial session:', session ? 'exists' : 'none')
-        
-        if (isMounted) {
-          setUser(session?.user ?? null)
-          
-          if (session?.user) {
-            await fetchProfile(session.user.id)
-          } else {
-            console.log('No user session, setting loading to false')
-            setLoading(false)
-          }
-        }
-      } catch (error) {
-        console.error('Error during auth initialization:', error)
-        if (isMounted) {
-          setLoading(false)
-        }
-      }
-    }
-
-    initializeAuth()
-
-    // Listen for auth changes
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
-      console.log('Auth state changed:', event, session ? 'user exists' : 'no user')
-      
-      if (isMounted) {
-        setUser(session?.user ?? null)
-        
-        if (session?.user) {
-          // Clear any existing timeout
-          if (timeoutId) clearTimeout(timeoutId)
-          await fetchProfile(session.user.id)
-        } else {
-          setProfile(null)
-          setLoading(false)
-        }
-      }
-    })
-
-    return () => {
-      isMounted = false
-      subscription.unsubscribe()
-      if (timeoutId) clearTimeout(timeoutId)
-    }
-  }, [])
-
-  const fetchProfile = async (userId: string) => {
-    console.log('fetchProfile called for userId:', userId)
-    
     try {
-      // First, try to get existing profile
       const { data: existingProfile, error: fetchError } = await supabase
         .from('profiles')
         .select('*')
         .eq('user_id', userId)
         .maybeSingle()
 
-      console.log('Profile fetch result:', { data: existingProfile, error: fetchError })
-
       if (fetchError) {
         console.error('Error fetching profile:', fetchError)
-        setLoading(false)
         return
       }
 
       if (existingProfile) {
-        console.log('Profile found, setting profile')
         setProfile(existingProfile)
-        setLoading(false)
         return
       }
 
-      // No profile exists, create one
-      console.log('No profile found, creating new profile')
+      // Create profile if it doesn't exist
       const { data: userData } = await supabase.auth.getUser()
-      
-      if (!userData.user) {
-        console.error('No user data available for profile creation')
-        setLoading(false)
-        return
-      }
+      if (!userData.user) return
 
       const userRole = userData.user.user_metadata?.role || 'solo'
       const firstName = userData.user.user_metadata?.first_name
       const lastName = userData.user.user_metadata?.last_name
-      const newProfile = {
-        user_id: userData.user.id,
-        email: userData.user.email!,
-        role: userRole as UserRole,
-        first_name: firstName,
-        last_name: lastName,
-      }
-
+      
       const { data: createdProfile, error: createError } = await supabase
         .from('profiles')
-        .insert(newProfile)
+        .insert({
+          user_id: userData.user.id,
+          email: userData.user.email!,
+          role: userRole as UserRole,
+          first_name: firstName,
+          last_name: lastName,
+        })
         .select()
         .maybeSingle()
 
-      if (createError) {
-        console.error('Error creating profile:', createError)
-        // If it's a duplicate key error, try fetching the existing profile
-        if (createError.code === '23505') {
-          console.log('Profile already exists (race condition), fetching existing profile')
-          const { data: raceProfile } = await supabase
-            .from('profiles')
-            .select('*')
-            .eq('user_id', userId)
-            .maybeSingle()
-          
-          if (raceProfile) {
-            setProfile(raceProfile)
-          }
-        }
-      } else if (createdProfile) {
-        console.log('Profile created successfully')
+      if (!createError && createdProfile) {
         setProfile(createdProfile)
       }
-
-    } catch (error) {
-      console.error('Unexpected error in fetchProfile:', error)
     } finally {
-      console.log('fetchProfile completed, setting loading to false')
+      fetchingRef.current = false
       setLoading(false)
     }
-  }
+  }, [])
+
+  useEffect(() => {
+    let mounted = true
+
+    const initAuth = async () => {
+      const { data: { session } } = await supabase.auth.getSession()
+      
+      if (!mounted) return
+      
+      setUser(session?.user ?? null)
+      
+      if (session?.user) {
+        await fetchProfile(session.user.id)
+      } else {
+        setLoading(false)
+      }
+    }
+
+    initAuth()
+
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+      if (!mounted) return
+      
+      setUser(session?.user ?? null)
+      
+      if (session?.user) {
+        fetchProfile(session.user.id)
+      } else {
+        setProfile(null)
+        setLoading(false)
+      }
+    })
+
+    return () => {
+      mounted = false
+      subscription.unsubscribe()
+    }
+  }, [fetchProfile])
 
   const signUp = async (email: string, password: string, role: UserRole = 'solo', firstName?: string, lastName?: string) => {
     const { data, error } = await supabase.auth.signUp({
