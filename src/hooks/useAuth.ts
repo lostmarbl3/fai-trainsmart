@@ -8,6 +8,8 @@ export interface UserProfile {
   id: string
   user_id: string
   email: string
+  first_name?: string
+  last_name?: string
   full_name?: string
   role: UserRole
   trainer_id?: string
@@ -116,10 +118,14 @@ export function useAuth() {
       }
 
       const userRole = userData.user.user_metadata?.role || 'solo'
+      const firstName = userData.user.user_metadata?.first_name
+      const lastName = userData.user.user_metadata?.last_name
       const newProfile = {
         user_id: userData.user.id,
         email: userData.user.email!,
         role: userRole as UserRole,
+        first_name: firstName,
+        last_name: lastName,
       }
 
       const { data: createdProfile, error: createError } = await supabase
@@ -156,13 +162,16 @@ export function useAuth() {
     }
   }
 
-  const signUp = async (email: string, password: string, role: 'trainer' | 'solo' = 'solo') => {
+  const signUp = async (email: string, password: string, role: UserRole = 'solo', firstName?: string, lastName?: string) => {
     const { data, error } = await supabase.auth.signUp({
       email,
       password,
       options: {
+        emailRedirectTo: `${window.location.origin}/`,
         data: {
-          role: role
+          role: role,
+          first_name: firstName,
+          last_name: lastName
         }
       }
     })

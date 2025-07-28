@@ -1,8 +1,17 @@
+import { useEffect } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { useAuth } from '@/hooks/useAuth'
 import { AuthForm } from '@/components/auth/AuthForm'
 
 const Index = () => {
   const { user, profile, loading } = useAuth()
+  const navigate = useNavigate()
+
+  useEffect(() => {
+    if (user && profile && !loading) {
+      navigate('/dashboard')
+    }
+  }, [user, profile, loading, navigate])
 
   if (loading) {
     return (
@@ -19,17 +28,12 @@ const Index = () => {
     return <AuthForm />
   }
 
+  // This shouldn't render due to useEffect redirect, but keeping as fallback
   return (
     <div className="min-h-screen flex items-center justify-center bg-background">
       <div className="text-center">
         <h1 className="text-4xl font-bold mb-4">Welcome to F/AI</h1>
-        <p className="text-xl text-muted-foreground mb-4">
-          {profile?.role === 'trainer' ? 'Trainer Dashboard' : 
-           profile?.role === 'solo' ? 'Solo User Dashboard' : 'Dashboard'}
-        </p>
-        <p className="text-sm text-muted-foreground">
-          Logged in as: {profile?.email} ({profile?.role})
-        </p>
+        <p className="text-muted-foreground">Redirecting to dashboard...</p>
       </div>
     </div>
   )

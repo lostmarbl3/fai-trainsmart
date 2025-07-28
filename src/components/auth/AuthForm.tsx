@@ -12,7 +12,9 @@ export function AuthForm() {
   const [isLoading, setIsLoading] = useState(false)
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
-  const [role, setRole] = useState<'trainer' | 'solo'>('solo')
+  const [firstName, setFirstName] = useState('')
+  const [lastName, setLastName] = useState('')
+  const [role, setRole] = useState<'trainer' | 'client' | 'solo'>('solo')
   const { signIn, signUp } = useAuth()
 
   const handleSignIn = async (e: React.FormEvent) => {
@@ -41,7 +43,7 @@ export function AuthForm() {
     setIsLoading(true)
     
     try {
-      await signUp(email, password, role)
+      await signUp(email, password, role, firstName, lastName)
       toast({
         title: "Account created!",
         description: "Check your email to confirm your account.",
@@ -103,6 +105,30 @@ export function AuthForm() {
             
             <TabsContent value="signup">
               <form onSubmit={handleSignUp} className="space-y-4">
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="signup-firstName">First Name</Label>
+                    <Input
+                      id="signup-firstName"
+                      type="text"
+                      placeholder="First name"
+                      value={firstName}
+                      onChange={(e) => setFirstName(e.target.value)}
+                      required
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="signup-lastName">Last Name</Label>
+                    <Input
+                      id="signup-lastName"
+                      type="text"
+                      placeholder="Last name"
+                      value={lastName}
+                      onChange={(e) => setLastName(e.target.value)}
+                      required
+                    />
+                  </div>
+                </div>
                 <div className="space-y-2">
                   <Label htmlFor="signup-email">Email</Label>
                   <Input
@@ -127,7 +153,7 @@ export function AuthForm() {
                 </div>
                 <div className="space-y-3">
                   <Label>Account Type</Label>
-                  <RadioGroup value={role} onValueChange={(value) => setRole(value as 'trainer' | 'solo')}>
+                  <RadioGroup value={role} onValueChange={(value) => setRole(value as 'trainer' | 'client' | 'solo')}>
                     <div className="flex items-center space-x-2">
                       <RadioGroupItem value="solo" id="solo" />
                       <Label htmlFor="solo">Solo User ($10/month)</Label>
@@ -135,6 +161,10 @@ export function AuthForm() {
                     <div className="flex items-center space-x-2">
                       <RadioGroupItem value="trainer" id="trainer" />
                       <Label htmlFor="trainer">Trainer (Starting $15/month)</Label>
+                    </div>
+                    <div className="flex items-center space-x-2">
+                      <RadioGroupItem value="client" id="client" />
+                      <Label htmlFor="client">Client (Free - Trainer Required)</Label>
                     </div>
                   </RadioGroup>
                 </div>
