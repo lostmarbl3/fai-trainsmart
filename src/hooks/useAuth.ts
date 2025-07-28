@@ -57,9 +57,9 @@ export function useAuth() {
         .from('profiles')
         .select('*')
         .eq('user_id', userId)
-        .single()
+        .maybeSingle()
 
-      if (error && error.code === 'PGRST116') {
+      if (!data && !error) {
         // Profile doesn't exist, create one
         const { data: userData } = await supabase.auth.getUser()
         if (userData.user) {
@@ -73,17 +73,27 @@ export function useAuth() {
             .from('profiles')
             .insert(newProfile)
             .select()
-            .single()
+            .maybeSingle()
 
-          if (createError) {
+          if (createError && createError.code !== '23505') {
             console.error('Error creating profile:', createError)
-          } else {
+          } else if (createdProfile) {
             setProfile(createdProfile)
+          } else {
+            // Profile might already exist due to race condition, try fetching again
+            const { data: existingProfile } = await supabase
+              .from('profiles')
+              .select('*')
+              .eq('user_id', userId)
+              .maybeSingle()
+            if (existingProfile) {
+              setProfile(existingProfile)
+            }
           }
         }
       } else if (error) {
         console.error('Error fetching profile:', error)
-      } else {
+      } else if (data) {
         setProfile(data)
       }
     } catch (error) {
