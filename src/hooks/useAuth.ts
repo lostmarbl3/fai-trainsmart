@@ -28,14 +28,17 @@ export function useAuth() {
 
   useEffect(() => {
     let timeoutId: NodeJS.Timeout
+    let isMounted = true
 
     const initializeAuth = async () => {
       console.log('Initializing auth...')
       
       // Set timeout as safety net
       timeoutId = setTimeout(() => {
-        console.log('Auth timeout reached, forcing loading to false')
-        setLoading(false)
+        if (isMounted) {
+          console.log('Auth timeout reached, forcing loading to false')
+          setLoading(false)
+        }
       }, 10000)
 
       try {
@@ -43,39 +46,46 @@ export function useAuth() {
         const { data: { session } } = await supabase.auth.getSession()
         console.log('Initial session:', session ? 'exists' : 'none')
         
-        setUser(session?.user ?? null)
-        
-        if (session?.user) {
-          await fetchProfile(session.user.id)
-        } else {
-          console.log('No user session, setting loading to false')
-          setLoading(false)
+        if (isMounted) {
+          setUser(session?.user ?? null)
+          
+          if (session?.user) {
+            await fetchProfile(session.user.id)
+          } else {
+            console.log('No user session, setting loading to false')
+            setLoading(false)
+          }
         }
       } catch (error) {
         console.error('Error during auth initialization:', error)
-        setLoading(false)
+        if (isMounted) {
+          setLoading(false)
+        }
       }
     }
 
     initializeAuth()
 
     // Listen for auth changes
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
       console.log('Auth state changed:', event, session ? 'user exists' : 'no user')
       
-      setUser(session?.user ?? null)
-      
-      if (session?.user) {
-        // Clear any existing timeout
-        if (timeoutId) clearTimeout(timeoutId)
-        fetchProfile(session.user.id)
-      } else {
-        setProfile(null)
-        setLoading(false)
+      if (isMounted) {
+        setUser(session?.user ?? null)
+        
+        if (session?.user) {
+          // Clear any existing timeout
+          if (timeoutId) clearTimeout(timeoutId)
+          await fetchProfile(session.user.id)
+        } else {
+          setProfile(null)
+          setLoading(false)
+        }
       }
     })
 
     return () => {
+      isMounted = false
       subscription.unsubscribe()
       if (timeoutId) clearTimeout(timeoutId)
     }
