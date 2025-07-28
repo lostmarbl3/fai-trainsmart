@@ -142,7 +142,7 @@ export default function MyWorkouts() {
   }
 
   const startWorkout = (workoutId: string) => {
-    navigate(`/workout/${workoutId}`)
+    navigate(`/workout-builder/${workoutId}`)
   }
 
   const WorkoutCard = ({ workout }: { workout: Workout }) => (
