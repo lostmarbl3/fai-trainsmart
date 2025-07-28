@@ -30,11 +30,11 @@ export default function Dashboard() {
 
   switch (profile.role) {
     case 'trainer':
-      return <TrainerDashboard />
+      return <TrainerDashboard profile={profile} />
     case 'solo':
-      return <SoloDashboard />
+      return <SoloDashboard profile={profile} />
     case 'client':
-      return <ClientDashboard />
+      return <ClientDashboard profile={profile} />
     default:
       return (
         <div className="text-center py-12">

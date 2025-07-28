@@ -2,7 +2,6 @@ import { useState, useEffect } from 'react'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
-import { useAuth } from '@/hooks/useAuth'
 import { supabase } from '@/integrations/supabase/client'
 import { Link } from 'react-router-dom'
 import { 
@@ -22,8 +21,11 @@ interface DashboardTile {
   className?: string
 }
 
-export function TrainerDashboard() {
-  const { profile } = useAuth()
+interface TrainerDashboardProps {
+  profile: any
+}
+
+export function TrainerDashboard({ profile }: TrainerDashboardProps) {
   const [clients, setClients] = useState<any[]>([])
   const [todaysWorkouts, setTodaysWorkouts] = useState<any[]>([])
   const [draftWorkouts, setDraftWorkouts] = useState<any[]>([])

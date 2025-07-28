@@ -2,7 +2,6 @@ import { useState, useEffect } from 'react'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
-import { useAuth } from '@/hooks/useAuth'
 import { supabase } from '@/integrations/supabase/client'
 import { Link } from 'react-router-dom'
 import { 
@@ -14,8 +13,11 @@ import {
   Clock
 } from 'lucide-react'
 
-export function ClientDashboard() {
-  const { profile } = useAuth()
+interface ClientDashboardProps {
+  profile: any
+}
+
+export function ClientDashboard({ profile }: ClientDashboardProps) {
   const [todaysWorkout, setTodaysWorkout] = useState<any>(null)
   const [recentWorkouts, setRecentWorkouts] = useState<any[]>([])
   const [trainerInfo, setTrainerInfo] = useState<any>(null)
