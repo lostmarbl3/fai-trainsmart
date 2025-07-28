@@ -1,6 +1,23 @@
 import { useEffect, useState } from 'react'
 import { User } from '@supabase/supabase-js'
-import { supabase, UserProfile } from '@/lib/supabase'
+import { supabase } from '@/integrations/supabase/client'
+
+export type UserRole = 'trainer' | 'client' | 'solo'
+
+export interface UserProfile {
+  id: string
+  user_id: string
+  email: string
+  full_name?: string
+  role: UserRole
+  trainer_id?: string
+  subscription_tier?: string
+  subscription_status?: string
+  stripe_customer_id?: string
+  client_limit?: number
+  created_at: string
+  updated_at: string
+}
 
 export function useAuth() {
   const [user, setUser] = useState<User | null>(null)
@@ -39,7 +56,7 @@ export function useAuth() {
       const { data, error } = await supabase
         .from('profiles')
         .select('*')
-        .eq('id', userId)
+        .eq('user_id', userId)
         .single()
 
       if (error && error.code === 'PGRST116') {
@@ -47,7 +64,7 @@ export function useAuth() {
         const { data: userData } = await supabase.auth.getUser()
         if (userData.user) {
           const newProfile = {
-            id: userData.user.id,
+            user_id: userData.user.id,
             email: userData.user.email!,
             role: 'solo' as const,
           }
@@ -109,7 +126,7 @@ export function useAuth() {
     const { data, error } = await supabase
       .from('profiles')
       .update({ ...updates, updated_at: new Date().toISOString() })
-      .eq('id', user.id)
+      .eq('user_id', user.id)
       .select()
       .single()
 
