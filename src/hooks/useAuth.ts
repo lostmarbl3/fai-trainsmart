@@ -25,86 +25,132 @@ export function useAuth() {
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
-    // Get initial session
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      setUser(session?.user ?? null)
-      if (session?.user) {
-        fetchProfile(session.user.id)
-      } else {
+    let timeoutId: NodeJS.Timeout
+
+    const initializeAuth = async () => {
+      console.log('Initializing auth...')
+      
+      // Set timeout as safety net
+      timeoutId = setTimeout(() => {
+        console.log('Auth timeout reached, forcing loading to false')
+        setLoading(false)
+      }, 10000)
+
+      try {
+        // Get initial session
+        const { data: { session } } = await supabase.auth.getSession()
+        console.log('Initial session:', session ? 'exists' : 'none')
+        
+        setUser(session?.user ?? null)
+        
+        if (session?.user) {
+          await fetchProfile(session.user.id)
+        } else {
+          console.log('No user session, setting loading to false')
+          setLoading(false)
+        }
+      } catch (error) {
+        console.error('Error during auth initialization:', error)
         setLoading(false)
       }
-    })
+    }
+
+    initializeAuth()
 
     // Listen for auth changes
-    const {
-      data: { subscription },
-    } = supabase.auth.onAuthStateChange(async (event, session) => {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+      console.log('Auth state changed:', event, session ? 'user exists' : 'no user')
+      
       setUser(session?.user ?? null)
+      
       if (session?.user) {
-        await fetchProfile(session.user.id)
+        // Clear any existing timeout
+        if (timeoutId) clearTimeout(timeoutId)
+        fetchProfile(session.user.id)
       } else {
         setProfile(null)
         setLoading(false)
       }
     })
 
-    return () => subscription.unsubscribe()
+    return () => {
+      subscription.unsubscribe()
+      if (timeoutId) clearTimeout(timeoutId)
+    }
   }, [])
 
   const fetchProfile = async (userId: string) => {
     console.log('fetchProfile called for userId:', userId)
+    
     try {
-      const { data, error } = await supabase
+      // First, try to get existing profile
+      const { data: existingProfile, error: fetchError } = await supabase
         .from('profiles')
         .select('*')
         .eq('user_id', userId)
         .maybeSingle()
 
-      console.log('Profile query result:', { data, error })
-      
-      if (!data && !error) {
-        console.log('No profile found, creating new profile')
-        // Profile doesn't exist, create one
-        const { data: userData } = await supabase.auth.getUser()
-        if (userData.user) {
-          const newProfile = {
-            user_id: userData.user.id,
-            email: userData.user.email!,
-            role: 'solo' as const,
-          }
-          
-          const { data: createdProfile, error: createError } = await supabase
-            .from('profiles')
-            .insert(newProfile)
-            .select()
-            .maybeSingle()
+      console.log('Profile fetch result:', { data: existingProfile, error: fetchError })
 
-          if (createError && createError.code !== '23505') {
-            console.error('Error creating profile:', createError)
-          } else if (createdProfile) {
-            setProfile(createdProfile)
-          } else {
-            // Profile might already exist due to race condition, try fetching again
-            const { data: existingProfile } = await supabase
-              .from('profiles')
-              .select('*')
-              .eq('user_id', userId)
-              .maybeSingle()
-            if (existingProfile) {
-              setProfile(existingProfile)
-            }
+      if (fetchError) {
+        console.error('Error fetching profile:', fetchError)
+        setLoading(false)
+        return
+      }
+
+      if (existingProfile) {
+        console.log('Profile found, setting profile')
+        setProfile(existingProfile)
+        setLoading(false)
+        return
+      }
+
+      // No profile exists, create one
+      console.log('No profile found, creating new profile')
+      const { data: userData } = await supabase.auth.getUser()
+      
+      if (!userData.user) {
+        console.error('No user data available for profile creation')
+        setLoading(false)
+        return
+      }
+
+      const newProfile = {
+        user_id: userData.user.id,
+        email: userData.user.email!,
+        role: 'solo' as const,
+      }
+
+      const { data: createdProfile, error: createError } = await supabase
+        .from('profiles')
+        .insert(newProfile)
+        .select()
+        .maybeSingle()
+
+      if (createError) {
+        console.error('Error creating profile:', createError)
+        // If it's a duplicate key error, try fetching the existing profile
+        if (createError.code === '23505') {
+          console.log('Profile already exists (race condition), fetching existing profile')
+          const { data: raceProfile } = await supabase
+            .from('profiles')
+            .select('*')
+            .eq('user_id', userId)
+            .maybeSingle()
+          
+          if (raceProfile) {
+            setProfile(raceProfile)
           }
         }
-      } else if (error) {
-        console.error('Error fetching profile:', error)
-      } else if (data) {
-        console.log('Profile found:', data)
-        setProfile(data)
+      } else if (createdProfile) {
+        console.log('Profile created successfully')
+        setProfile(createdProfile)
       }
+
     } catch (error) {
-      console.error('Error in fetchProfile:', error)
+      console.error('Unexpected error in fetchProfile:', error)
     } finally {
-      console.log('Setting loading to false')
+      console.log('fetchProfile completed, setting loading to false')
       setLoading(false)
     }
   }
