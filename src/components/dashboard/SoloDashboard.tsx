@@ -145,14 +145,14 @@ export function SoloDashboard({ profile }: SoloDashboardProps) {
                   )}
                 </div>
                 <div className="flex space-x-2">
-                  <Button asChild>
-                    <Link to={`/workouts/${todaysWorkout.id}/start`}>
+                <Button asChild>
+                    <Link to={`/workout-builder/${todaysWorkout.id}`}>
                       <Play className="mr-2 h-4 w-4" />
                       Start Workout
                     </Link>
                   </Button>
                   <Button asChild variant="outline">
-                    <Link to={`/workouts/${todaysWorkout.id}`}>
+                    <Link to={`/workout-builder/${todaysWorkout.id}`}>
                       View Details
                     </Link>
                   </Button>
@@ -163,7 +163,7 @@ export function SoloDashboard({ profile }: SoloDashboardProps) {
                 <Calendar className="mx-auto h-12 w-12 text-muted-foreground mb-4" />
                 <p className="text-muted-foreground mb-4">No workout scheduled for today</p>
                 <Button asChild>
-                  <Link to="/workouts/create">
+                  <Link to="/workout-builder">
                     <Plus className="mr-2 h-4 w-4" />
                     Create Workout
                   </Link>
@@ -180,7 +180,7 @@ export function SoloDashboard({ profile }: SoloDashboardProps) {
           </CardHeader>
           <CardContent className="space-y-3">
             <Button asChild className="w-full">
-              <Link to="/workouts/create">
+              <Link to="/workout-builder">
                 <Plus className="mr-2 h-4 w-4" />
                 Create Workout
               </Link>

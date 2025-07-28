@@ -137,13 +137,13 @@ export function ClientDashboard({ profile }: ClientDashboardProps) {
                 </div>
                 <div className="flex space-x-2">
                   <Button asChild>
-                    <Link to={`/workouts/${todaysWorkout.id}/start`}>
+                    <Link to={`/workout-builder/${todaysWorkout.id}`}>
                       <Play className="mr-2 h-4 w-4" />
                       Start Workout
                     </Link>
                   </Button>
                   <Button asChild variant="outline">
-                    <Link to={`/workouts/${todaysWorkout.id}`}>
+                    <Link to={`/workout-builder/${todaysWorkout.id}`}>
                       View Details
                     </Link>
                   </Button>

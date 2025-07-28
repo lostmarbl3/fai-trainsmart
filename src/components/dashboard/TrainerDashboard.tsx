@@ -87,19 +87,19 @@ export function TrainerDashboard({ profile }: TrainerDashboardProps) {
       content: (
         <div className="space-y-3">
           <Button asChild className="w-full">
-            <Link to="/workouts/create">
+            <Link to="/workout-builder">
               <Plus className="mr-2 h-4 w-4" />
               Create Workout
             </Link>
           </Button>
           <Button asChild variant="outline" className="w-full">
-            <Link to="/programs/create">
+            <Link to="/programs">
               <Plus className="mr-2 h-4 w-4" />
               Create Program
             </Link>
           </Button>
           <Button asChild variant="outline" className="w-full">
-            <Link to="/clients/add">
+            <Link to="/clients">
               <Users className="mr-2 h-4 w-4" />
               Add Client
             </Link>
@@ -142,7 +142,7 @@ export function TrainerDashboard({ profile }: TrainerDashboardProps) {
         <div className="space-y-2">
           <p className="text-sm text-muted-foreground">Recent client activities will appear here</p>
           <Button asChild variant="outline" size="sm" className="w-full">
-            <Link to="/activity">
+            <Link to="/progress">
               <Activity className="mr-2 h-3 w-3" />
               View All Activity
             </Link>
