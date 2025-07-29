@@ -278,10 +278,19 @@ export default function ClientManagement() {
       console.log('Setting saving state to true...')
       console.log('Adding new client:', newClient)
 
+      // Generate a proper UUID for the client
+      const generateUUID = () => {
+        return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
+          const r = Math.random() * 16 | 0;
+          const v = c == 'x' ? r : (r & 0x3 | 0x8);
+          return v.toString(16);
+        });
+      }
+
       // Simplified approach - just add to trainer_clients table with client info in notes
       const clientData = {
         trainer_id: user.id,
-        client_id: `client-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`, // Unique temporary ID
+        client_id: generateUUID(), // Proper UUID format
         trainer_notes: JSON.stringify({
           first_name: newClient.first_name,
           last_name: newClient.last_name,
