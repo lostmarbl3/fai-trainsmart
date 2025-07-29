@@ -108,8 +108,9 @@ export default function ClientManagement() {
     training_goals: ''
   })
 
-  // Load clients on component mount
+  // Load clients on component mount and test connection
   useEffect(() => {
+    testClientTable()
     if (user && profile?.role === 'trainer') {
       loadClients()
     }
@@ -194,8 +195,38 @@ export default function ClientManagement() {
     }
   }
 
+  // Test Supabase connection for trainer_clients table
+  const testClientTable = async () => {
+    console.log('=== CLIENT TABLE TEST START ===')
+    console.log('Testing trainer_clients table connection...')
+    
+    try {
+      const { data, error } = await supabase.from('trainer_clients').select('*').limit(1)
+      console.log('Client table test result:', { data, error })
+      console.log('Data received:', JSON.stringify(data, null, 2))
+      console.log('Error received:', JSON.stringify(error, null, 2))
+      
+      if (error) {
+        console.error('Client table test failed:', error)
+      } else {
+        console.log('Client table test successful!')
+      }
+    } catch (err) {
+      console.error('Client table test exception:', err)
+    }
+    console.log('=== CLIENT TABLE TEST END ===')
+  }
+
   const addClient = async () => {
+    console.log('=== CLIENT CREATION DEBUG START ===')
+    console.log('About to add client...')
+    console.log('Supabase client:', supabase)
+    console.log('Mock user:', user)
+    console.log('User ID:', user?.id)
+    console.log('Client data:', newClient)
+    
     if (!user) {
+      console.log('ERROR: No user logged in')
       toast({
         title: "Error",
         description: "You must be logged in to add clients",
@@ -205,6 +236,7 @@ export default function ClientManagement() {
     }
 
     if (!newClient.first_name || !newClient.last_name || !newClient.email) {
+      console.log('ERROR: Missing required fields')
       toast({
         title: "Error",
         description: "Please fill in all required fields",
@@ -215,68 +247,38 @@ export default function ClientManagement() {
 
     try {
       setSaving(true)
+      console.log('Setting saving state to true...')
       console.log('Adding new client:', newClient)
 
-      // First, create or find the user profile for the client
-      const { data: existingProfile, error: profileError } = await supabase
-        .from('profiles')
-        .select('*')
-        .eq('email', newClient.email)
-        .single()
-
-      let clientId: string
-
-      if (existingProfile) {
-        // Client already exists as a user
-        clientId = existingProfile.id
-        console.log('Found existing client profile:', existingProfile)
-      } else {
-        // Create a new profile for the client
-        const { data: newProfile, error: createProfileError } = await supabase
-          .from('profiles')
-          .insert({
-            email: newClient.email,
-            first_name: newClient.first_name,
-            last_name: newClient.last_name,
-            role: 'client',
-            user_id: null // Set to null since they haven't signed up yet
-          })
-          .select()
-          .single()
-
-        if (createProfileError) {
-          console.error('Error creating client profile:', createProfileError)
-          toast({
-            title: "Error",
-            description: "Failed to create client profile",
-            variant: "destructive"
-          })
-          return
-        }
-
-        clientId = newProfile.id
-        console.log('Created new client profile:', newProfile)
+      // Simplified approach - just add to trainer_clients table
+      const clientData = {
+        trainer_id: user.id,
+        client_id: `temp-client-${Date.now()}`, // Temporary UUID-like ID
+        trainer_notes: `Client: ${newClient.first_name} ${newClient.last_name} (${newClient.email})`,
+        status: 'active',
+        billing_amount: newClient.billing_amount ? parseFloat(newClient.billing_amount) : null,
+        billing_schedule: newClient.billing_schedule,
+        requires_waiver: newClient.requires_waiver,
+        requires_health_questionnaire: newClient.requires_health_questionnaire,
+        days_past_due_limit: parseInt(newClient.days_past_due_limit) || 7,
       }
 
-      // Now create the trainer-client relationship
-      const { data: trainerClient, error: relationshipError } = await supabase
-        .from('trainer_clients')
-        .insert({
-          trainer_id: user.id,
-          client_id: clientId,
-          status: 'pending',
-          billing_amount: newClient.billing_amount ? parseFloat(newClient.billing_amount) : null,
-          billing_schedule: newClient.billing_schedule,
-          requires_waiver: newClient.requires_waiver,
-          requires_health_questionnaire: newClient.requires_health_questionnaire,
-          days_past_due_limit: parseInt(newClient.days_past_due_limit) || 7,
-          trainer_notes: newClient.training_goals || null
-        })
-        .select()
-        .single()
+      console.log('Client data to save:', JSON.stringify(clientData, null, 2))
 
-      if (relationshipError) {
-        console.error('Error creating trainer-client relationship:', relationshipError)
+      const { data, error } = await supabase
+        .from('trainer_clients')
+        .insert(clientData)
+        .select()
+
+      console.log('Supabase insert response:', { data, error })
+      console.log('Full error object:', JSON.stringify(error, null, 2))
+      console.log('Data returned:', JSON.stringify(data, null, 2))
+
+      if (error) {
+        console.error('Save error details:', error)
+        console.error('Error code:', error.code)
+        console.error('Error message:', error.message)
+        console.error('Error details:', error.details)
         toast({
           title: "Error",
           description: "Failed to add client to your list",
@@ -285,7 +287,7 @@ export default function ClientManagement() {
         return
       }
 
-      console.log('Created trainer-client relationship:', trainerClient)
+      console.log('SUCCESS: Client added successfully:', data)
 
       // Refresh the clients list
       await loadClients()
@@ -312,8 +314,10 @@ export default function ClientManagement() {
         title: "Success",
         description: `${newClient.first_name} ${newClient.last_name} has been added to your client list.`,
       })
-    } catch (error) {
-      console.error('Error adding client:', error)
+    } catch (error: any) {
+      console.error('CATCH ERROR: Error adding client:', error)
+      console.error('Error type:', typeof error)
+      console.error('Error stringified:', JSON.stringify(error, null, 2))
       toast({
         title: "Error",
         description: "Failed to add client",
@@ -321,6 +325,7 @@ export default function ClientManagement() {
       })
     } finally {
       setSaving(false)
+      console.log('=== CLIENT CREATION DEBUG END ===')
     }
   }
 

@@ -77,8 +77,9 @@ export default function WorkoutBuilder() {
     }
   }, [id, user])
 
-  // Load clients for assignment
+  // Load clients for assignment and test connection
   useEffect(() => {
+    testSupabase()
     if (user && profile?.role === 'trainer') {
       loadClients()
     }
@@ -252,8 +253,38 @@ export default function WorkoutBuilder() {
     }))
   }
 
+  // Test Supabase connection
+  const testSupabase = async () => {
+    console.log('=== SUPABASE CONNECTION TEST START ===')
+    console.log('Testing Supabase connection...')
+    console.log('Supabase client status:', supabase)
+    
+    try {
+      const { data, error } = await supabase.from('workouts').select('*').limit(1)
+      console.log('Select test result:', { data, error })
+      console.log('Data received:', JSON.stringify(data, null, 2))
+      console.log('Error received:', JSON.stringify(error, null, 2))
+      
+      if (error) {
+        console.error('Connection test failed:', error)
+      } else {
+        console.log('Connection test successful!')
+      }
+    } catch (err) {
+      console.error('Connection test exception:', err)
+    }
+    console.log('=== SUPABASE CONNECTION TEST END ===')
+  }
+
   const saveWorkout = async () => {
+    console.log('=== WORKOUT SAVE DEBUG START ===')
+    console.log('About to save workout...')
+    console.log('Supabase client:', supabase)
+    console.log('Mock user:', user)
+    console.log('User ID:', user?.id)
+    
     if (!user) {
+      console.log('ERROR: No user logged in')
       toast({
         title: "Error",
         description: "You must be logged in to save workouts",
@@ -263,6 +294,7 @@ export default function WorkoutBuilder() {
     }
 
     if (!workout.title.trim()) {
+      console.log('ERROR: No workout title provided')
       toast({
         title: "Error",
         description: "Please enter a workout title",
@@ -273,7 +305,8 @@ export default function WorkoutBuilder() {
 
     try {
       setSaving(true)
-      console.log('Saving workout:', workout)
+      console.log('Setting saving state to true...')
+      console.log('Workout object:', workout)
 
       const workoutData = {
         title: workout.title,
@@ -287,10 +320,12 @@ export default function WorkoutBuilder() {
         scheduled_date: workout.scheduled_date || null
       }
 
+      console.log('Workout data to save:', JSON.stringify(workoutData, null, 2))
+
       let result
       if (workout.id) {
         // Update existing workout
-        console.log('Updating workout:', workout.id)
+        console.log('Updating existing workout:', workout.id)
         result = await supabase
           .from('workouts')
           .update(workoutData)
@@ -307,8 +342,15 @@ export default function WorkoutBuilder() {
           .single()
       }
 
+      console.log('Supabase response:', { data: result.data, error: result.error })
+      console.log('Full error object:', JSON.stringify(result.error, null, 2))
+      console.log('Data returned:', JSON.stringify(result.data, null, 2))
+
       if (result.error) {
-        console.error('Error saving workout:', result.error)
+        console.error('Save error details:', result.error)
+        console.error('Error code:', result.error.code)
+        console.error('Error message:', result.error.message)
+        console.error('Error details:', result.error.details)
         toast({
           title: "Error",
           description: "Failed to save workout",
@@ -317,7 +359,7 @@ export default function WorkoutBuilder() {
         return
       }
 
-      console.log('Workout saved successfully:', result.data)
+      console.log('SUCCESS: Workout saved successfully:', result.data)
       setWorkout(prev => ({ ...prev, id: result.data.id }))
       
       toast({
@@ -329,8 +371,10 @@ export default function WorkoutBuilder() {
       if (!workout.id && result.data.id) {
         navigate(`/workout-builder/${result.data.id}`, { replace: true })
       }
-    } catch (error) {
-      console.error('Error saving workout:', error)
+    } catch (error: any) {
+      console.error('CATCH ERROR: Error saving workout:', error)
+      console.error('Error type:', typeof error)
+      console.error('Error stringified:', JSON.stringify(error, null, 2))
       toast({
         title: "Error",
         description: "Failed to save workout",
@@ -338,6 +382,7 @@ export default function WorkoutBuilder() {
       })
     } finally {
       setSaving(false)
+      console.log('=== WORKOUT SAVE DEBUG END ===')
     }
   }
 
