@@ -210,22 +210,7 @@ export type Database = {
           updated_at?: string | null
           waiver_signed_at?: string | null
         }
-        Relationships: [
-          {
-            foreignKeyName: "trainer_clients_client_id_fkey"
-            columns: ["client_id"]
-            isOneToOne: false
-            referencedRelation: "profiles"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "trainer_clients_trainer_id_fkey"
-            columns: ["trainer_id"]
-            isOneToOne: false
-            referencedRelation: "profiles"
-            referencedColumns: ["id"]
-          },
-        ]
+        Relationships: []
       }
       workout_sessions: {
         Row: {
@@ -315,22 +300,7 @@ export type Database = {
           updated_at?: string | null
           workout_data?: Json | null
         }
-        Relationships: [
-          {
-            foreignKeyName: "workouts_assigned_to_fkey"
-            columns: ["assigned_to"]
-            isOneToOne: false
-            referencedRelation: "profiles"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "workouts_creator_id_fkey"
-            columns: ["creator_id"]
-            isOneToOne: false
-            referencedRelation: "profiles"
-            referencedColumns: ["id"]
-          },
-        ]
+        Relationships: []
       }
     }
     Views: {
