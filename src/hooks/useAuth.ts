@@ -21,58 +21,37 @@ export interface UserProfile {
   updated_at: string
 }
 
+// Mock user data for development - using valid UUIDs
+const mockUser = {
+  id: '00000000-0000-4000-8000-000000000001',
+  email: 'test@trainer.com',
+  created_at: new Date().toISOString(),
+  updated_at: new Date().toISOString(),
+} as User
+
+const mockProfile: UserProfile = {
+  id: '00000000-0000-4000-8000-000000000002',
+  user_id: '00000000-0000-4000-8000-000000000001',
+  email: 'test@trainer.com',
+  first_name: 'Test',
+  last_name: 'Trainer',
+  full_name: 'Test Trainer',
+  role: 'trainer',
+  client_limit: 10,
+  created_at: new Date().toISOString(),
+  updated_at: new Date().toISOString(),
+}
+
 export function useAuth() {
-  const [user, setUser] = useState<User | null>(null)
-  const [profile, setProfile] = useState<UserProfile | null>(null)
-  const [loading, setLoading] = useState(true)
+  const [user, setUser] = useState<User | null>(mockUser)
+  const [profile, setProfile] = useState<UserProfile | null>(mockProfile)
+  const [loading, setLoading] = useState(false)
 
+  // Mock data - no actual auth for now
   useEffect(() => {
-    // Get initial session
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      setUser(session?.user ?? null)
-      if (session?.user) {
-        fetchProfile(session.user.id)
-      } else {
-        setLoading(false)
-      }
-    })
-
-    // Listen for auth changes
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      async (event, session) => {
-        setUser(session?.user ?? null)
-        if (session?.user) {
-          await fetchProfile(session.user.id)
-        } else {
-          setProfile(null)
-          setLoading(false)
-        }
-      }
-    )
-
-    return () => subscription.unsubscribe()
+    // Simulate loading time
+    setTimeout(() => setLoading(false), 100)
   }, [])
-
-  const fetchProfile = async (userId: string) => {
-    try {
-      const { data, error } = await supabase
-        .from('profiles')
-        .select('*')
-        .eq('user_id', userId)
-        .single()
-
-      if (error && error.code !== 'PGRST116') {
-        console.error('Error fetching profile:', error)
-        throw error
-      }
-
-      setProfile(data)
-    } catch (error) {
-      console.error('Error in fetchProfile:', error)
-    } finally {
-      setLoading(false)
-    }
-  }
 
   const signUp = async (email: string, password: string, role: UserRole = 'solo', firstName?: string, lastName?: string) => {
     const { data, error } = await supabase.auth.signUp({
