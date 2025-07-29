@@ -135,10 +135,7 @@ export default function WorkoutBuilder() {
       
       const { data, error } = await supabase
         .from('trainer_clients')
-        .select(`
-          client_id,
-          client:profiles!trainer_clients_client_id_fkey(id, first_name, last_name, email)
-        `)
+        .select('*')
         .eq('trainer_id', user?.id)
 
       if (error) {
@@ -148,12 +145,42 @@ export default function WorkoutBuilder() {
 
       if (data) {
         console.log('Loaded clients:', data)
-        const clientsList = data.map(tc => ({
-          id: tc.client_id,
-          first_name: tc.client?.first_name || '',
-          last_name: tc.client?.last_name || '',
-          email: tc.client?.email || ''
-        }))
+        const clientsList = data.map(tc => {
+          // Parse client info from trainer_notes if it's JSON
+          let clientInfo = {
+            first_name: '',
+            last_name: '',
+            email: ''
+          }
+          
+          try {
+            if (tc.trainer_notes) {
+              const parsed = JSON.parse(tc.trainer_notes)
+              if (parsed.first_name) {
+                clientInfo = parsed
+              }
+            }
+          } catch (e) {
+            // If not JSON, extract from string format
+            if (tc.trainer_notes && tc.trainer_notes.includes('Client:')) {
+              const match = tc.trainer_notes.match(/Client: (.+) \((.+)\)/)
+              if (match) {
+                const [fullName, email] = [match[1], match[2]]
+                const nameParts = fullName.split(' ')
+                clientInfo.first_name = nameParts[0] || ''
+                clientInfo.last_name = nameParts.slice(1).join(' ') || ''
+                clientInfo.email = email || ''
+              }
+            }
+          }
+
+          return {
+            id: tc.client_id,
+            first_name: clientInfo.first_name,
+            last_name: clientInfo.last_name,
+            email: clientInfo.email
+          }
+        })
         setClients(clientsList)
       }
     } catch (error) {

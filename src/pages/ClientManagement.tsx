@@ -123,10 +123,7 @@ export default function ClientManagement() {
 
       const { data, error } = await supabase
         .from('trainer_clients')
-        .select(`
-          *,
-          client:profiles!trainer_clients_client_id_fkey(*)
-        `)
+        .select('*')
         .eq('trainer_id', user?.id)
 
       if (error) {
@@ -141,22 +138,53 @@ export default function ClientManagement() {
 
       if (data) {
         console.log('Loaded client data:', data)
-        const clientsList = data.map(tc => ({
-          id: tc.client_id,
-          first_name: tc.client?.first_name || '',
-          last_name: tc.client?.last_name || '',
-          email: tc.client?.email || '',
-          phone: '', // Phone not stored in profiles, will be empty for now
-          status: tc.status as 'active' | 'suspended' | 'pending',
-          billing_amount: tc.billing_amount ? Number(tc.billing_amount) : undefined,
-          billing_schedule: tc.billing_schedule || '',
-          trainer_notes: tc.trainer_notes || '',
-          requires_waiver: tc.requires_waiver || false,
-          waiver_signed_at: tc.waiver_signed_at || undefined,
-          requires_health_questionnaire: tc.requires_health_questionnaire || false,
-          health_questionnaire_completed_at: tc.health_questionnaire_completed_at || undefined,
-          created_at: tc.created_at || new Date().toISOString()
-        }))
+        const clientsList = data.map(tc => {
+          // Parse client info from trainer_notes if it's JSON
+          let clientInfo = {
+            first_name: '',
+            last_name: '',
+            email: '',
+            phone: ''
+          }
+          
+          try {
+            if (tc.trainer_notes) {
+              const parsed = JSON.parse(tc.trainer_notes)
+              if (parsed.first_name) {
+                clientInfo = parsed
+              }
+            }
+          } catch (e) {
+            // If not JSON, extract from string format
+            if (tc.trainer_notes && tc.trainer_notes.includes('Client:')) {
+              const match = tc.trainer_notes.match(/Client: (.+) \((.+)\)/)
+              if (match) {
+                const [fullName, email] = [match[1], match[2]]
+                const nameParts = fullName.split(' ')
+                clientInfo.first_name = nameParts[0] || ''
+                clientInfo.last_name = nameParts.slice(1).join(' ') || ''
+                clientInfo.email = email || ''
+              }
+            }
+          }
+
+          return {
+            id: tc.client_id,
+            first_name: clientInfo.first_name,
+            last_name: clientInfo.last_name,
+            email: clientInfo.email,
+            phone: clientInfo.phone,
+            status: tc.status as 'active' | 'suspended' | 'pending',
+            billing_amount: tc.billing_amount ? Number(tc.billing_amount) : undefined,
+            billing_schedule: tc.billing_schedule || '',
+            trainer_notes: tc.trainer_notes || '',
+            requires_waiver: tc.requires_waiver || false,
+            waiver_signed_at: tc.waiver_signed_at || undefined,
+            requires_health_questionnaire: tc.requires_health_questionnaire || false,
+            health_questionnaire_completed_at: tc.health_questionnaire_completed_at || undefined,
+            created_at: tc.created_at || new Date().toISOString()
+          }
+        })
         setClients(clientsList)
       }
     } catch (error) {
@@ -250,12 +278,18 @@ export default function ClientManagement() {
       console.log('Setting saving state to true...')
       console.log('Adding new client:', newClient)
 
-      // Simplified approach - just add to trainer_clients table
+      // Simplified approach - just add to trainer_clients table with client info in notes
       const clientData = {
         trainer_id: user.id,
-        client_id: `temp-client-${Date.now()}`, // Temporary UUID-like ID
-        trainer_notes: `Client: ${newClient.first_name} ${newClient.last_name} (${newClient.email})`,
-        status: 'active',
+        client_id: `client-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`, // Unique temporary ID
+        trainer_notes: JSON.stringify({
+          first_name: newClient.first_name,
+          last_name: newClient.last_name,
+          email: newClient.email,
+          phone: newClient.phone,
+          training_goals: newClient.training_goals
+        }),
+        status: 'pending',
         billing_amount: newClient.billing_amount ? parseFloat(newClient.billing_amount) : null,
         billing_schedule: newClient.billing_schedule,
         requires_waiver: newClient.requires_waiver,

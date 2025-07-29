@@ -102,10 +102,7 @@ export default function MyWorkouts() {
 
       let query = supabase
         .from('workouts')
-        .select(`
-          *,
-          assigned_user:profiles!workouts_assigned_to_fkey(first_name, last_name)
-        `)
+        .select('*')
 
       // For trainers, load workouts they created
       // For clients/solo, load workouts assigned to them or created by them
@@ -137,7 +134,7 @@ export default function MyWorkouts() {
           created_at: w.created_at || new Date().toISOString(),
           scheduled_date: w.scheduled_date || undefined,
           assigned_to: w.assigned_to || undefined,
-          assigned_to_name: w.assigned_user ? `${w.assigned_user.first_name} ${w.assigned_user.last_name}` : undefined,
+          assigned_to_name: undefined, // We'll implement this later when we have proper user profiles
           exercise_count: (w.workout_data as any)?.exercises?.length || 0,
           estimated_duration: undefined, // We'll calculate this later if needed
           last_used: undefined // We'll implement this with workout sessions later
