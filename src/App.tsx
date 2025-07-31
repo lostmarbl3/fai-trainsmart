@@ -32,6 +32,7 @@ const App = () => (
             <Route path="/dashboard" element={<Dashboard />} />
             <Route path="/workout-builder" element={<WorkoutBuilder />} />
             <Route path="/workout-builder/:id" element={<WorkoutBuilder />} />
+            <Route path="/workoutbuilder" element={<WorkoutBuilder />} />
             <Route path="/clients" element={<ClientManagement />} />
             <Route path="/my-workouts" element={<MyWorkouts />} />
             <Route path="/calendar" element={<Calendar />} />

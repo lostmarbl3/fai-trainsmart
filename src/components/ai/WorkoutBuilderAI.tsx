@@ -1,52 +1,66 @@
-import React, { useState } from "react";
+import { useState } from 'react';
 
-const WorkoutBuilderAI: React.FC = () => {
-  const [prompt, setPrompt] = useState("");
+const WorkoutBuilderAI = () => {
+  const [prompt, setPrompt] = useState('');
+  const [result, setResult] = useState('');
   const [loading, setLoading] = useState(false);
-  const [response, setResponse] = useState("");
+  const [error, setError] = useState('');
 
-  const handleSubmit = async () => {
+  const handleGenerate = async () => {
+    if (!prompt) return;
+
     setLoading(true);
-    setResponse("");
+    setError('');
+    setResult('');
 
     try {
-      const result = await fetch("/api/generate-workout", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
+      const res = await fetch('/api/generate-workout', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ prompt }),
       });
 
-      const data = await result.json();
-      setResponse(data.output || "No response from AI.");
+      if (!res.ok) throw new Error(`Server responded with ${res.status}`);
+      const data = await res.json();
+      setResult(data.workout || 'No workout returned');
     } catch (err) {
       console.error(err);
-      setResponse("There was an error generating your workout.");
+      setError('Something went wrong.');
     } finally {
       setLoading(false);
     }
   };
 
   return (
-    <div className="p-6 max-w-2xl mx-auto bg-white dark:bg-gray-900 text-black dark:text-white rounded-xl shadow-md space-y-4">
-      <h2 className="text-xl font-bold">AI Workout Generator</h2>
+    <div className="max-w-xl mx-auto mt-8 p-4 border rounded-lg shadow text-sm bg-white dark:bg-gray-900 dark:text-white">
+      <h2 className="text-xl font-semibold mb-3">AI Workout Generator</h2>
       <textarea
-        className="w-full p-2 border rounded bg-white dark:bg-gray-800 dark:text-white"
-        rows={4}
-        placeholder="Describe your workout needs (e.g. 'Push day for intermediate client, 45 mins')"
         value={prompt}
         onChange={(e) => setPrompt(e.target.value)}
+        rows={3}
+        className="w-full p-2 rounded border bg-white dark:bg-gray-800 dark:text-white border-gray-300 dark:border-gray-600 focus:outline-none"
+        placeholder="Describe your workout goal, experience level, and equipment (e.g. 'Build muscle, intermediate, with dumbbells')"
       />
+
       <button
-        onClick={handleSubmit}
-        disabled={loading || !prompt}
-        className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded disabled:opacity-50"
+        onClick={handleGenerate}
+        disabled={loading}
+        className="mt-3 w-full bg-blue-600 hover:bg-blue-700 text-white py-2 px-4 rounded font-medium"
       >
-        {loading ? "Generating..." : "Generate Workout"}
+        {loading ? 'Generating...' : 'Generate Workout'}
       </button>
-      {response && (
-        <pre className="bg-gray-100 dark:bg-gray-800 p-4 rounded whitespace-pre-wrap">
-          {response}
-        </pre>
+
+      {result && (
+        <div className="mt-4 p-3 bg-green-100 dark:bg-green-800 rounded">
+          <strong>Generated Workout:</strong>
+          <p>{result}</p>
+        </div>
+      )}
+
+      {error && (
+        <div className="mt-4 p-3 bg-red-100 dark:bg-red-800 rounded text-red-800 dark:text-red-200">
+          <strong>Error:</strong> {error}
+        </div>
       )}
     </div>
   );
